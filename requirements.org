@@ -38,7 +38,7 @@
 
 ** Requirements
 
-   - [ ] Implement the AJAX Javascript parts in the HTML file static/index.htm
+   - [x] Implement the AJAX Javascript parts in the HTML file static/index.htm
    - [x] Implement the webservice root
    - [x] Implement the webservice /entity/entity-name POST/PUT/GET API
    - [x] Implement the webservice /world API

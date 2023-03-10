@@ -25,16 +25,13 @@
   <body bgcolor="black" height="100%" width="100%">
     <canvas id="c" width="100%" height="100%" style='-webkit-tap-highlight-color: transparent;'></canvas>
     <script type="module">
-import { v4 as uuidv4 } from 'https://jspm.dev/uuid';
-const uuid = uuidv4();
-
-// This uuid is used to identify this client so separate clients can draw at the same time
-
 var canvas = document.getElementById('c');
 var host = window.location.host;
 var context = canvas.getContext("2d");
 var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
+
+var browserId = Math.floor(Math.random() * 1000);
 
 
 function sendJSONXMLHTTPRequest(url, objects, callback, method="POST") {
@@ -189,7 +186,7 @@ function addEntity(entity, data) {
 var counter = 0;
 function addEntityWithoutName(data) {
     //var name = "X"+Math.floor((Math.random()*100)+1);
-    var name = uuid+(counter++)%100;
+    var name = browserId+(counter++)%100;
     addEntity(name,data);
 }
 
@@ -292,7 +289,7 @@ var mouse = (function() {
 var previousPoint = null;
 
 // Add the application specific mouse listeners!
-//XXX: TODO Make these prettier!
+// Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
     let point = {'x':x,'y':y,'colour':'white', 'type':'point'};
     previousPoint = point;
@@ -315,13 +312,16 @@ mouse.mousedraggers.push(function(x,y,clicked,e) {
 
 
 function update() {
-    //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    // Get the world from the webservice using a XMLHTTPRequest
     sendJSONXMLHTTPRequest("/world",{},(data) => {
         world = data;
         drawNextFrame();
     }, "GET");
+        drawFrame();
+    // drawNextFrame();
+        // drawFrame();
 
-    drawFrame();
+    // drawFrame();
 }
 
 // This calls the webservice to clear the world for everyone
@@ -329,7 +329,6 @@ function clearWorld() {
 
     sendJSONXMLHTTPRequest("/clear",{},(data) => {
         world = data;
-        drawNextFrame();
     });
     clearFrame();
     world = {};

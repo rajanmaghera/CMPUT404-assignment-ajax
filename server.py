@@ -22,7 +22,7 @@
 
 
 import flask
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 import json
 app = Flask(__name__)
 app.debug = True
@@ -74,27 +74,39 @@ def flask_post_json():
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return flask.redirect("/static/index.html")
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    data = flask_post_json()
+    myWorld.set(entity, data)
+    return myWorld.get(entity)
 
-@app.route("/world", methods=['POST','GET'])    
+@app.route("/world", methods=['POST','GET'])
 def world():
     '''you should probably return the world here'''
-    return None
 
-@app.route("/entity/<entity>")    
+    # TODO what is the purpose of POSTing this?
+    return myWorld.world()
+
+@app.route("/entity/<entity>")
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    # the get method already deals with the case where the entity doesn't exist
+    return myWorld.get(entity)
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    myWorld.clear()
+    # I'm returing an empty dict so all responses are JSON
+    return {}
+
+@app.route('/static/<path:path>')
+def send_static(path):
+    '''This sends static files from the static folder'''
+    return send_from_directory('static', path)
 
 if __name__ == "__main__":
     app.run()

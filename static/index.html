@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html> 
   <head> 
-    <title>AJAX Assignment</title> 
+    <title>AJAX Assignment</title>
     <meta charset="utf-8" /> 
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
@@ -24,7 +24,12 @@
   </head> 
   <body bgcolor="black" height="100%" width="100%"> 
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
-    <script>
+    <script type="module">
+import { v4 as uuidv4 } from 'https://jspm.dev/uuid';
+const uuid = uuidv4();
+
+// This uuid is used to identify this client so separate clients can draw at the same time
+
 var canvas = document.getElementById('c');
 var host = window.location.host;
 var context = canvas.getContext("2d");
@@ -32,14 +37,16 @@ var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 
 
-function sendJSONXMLHTTPRequest(url, objects, callback) {
+function sendJSONXMLHTTPRequest(url, objects, callback, method="POST") {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function () {
         if (xhr.readyState==4) {
             try {
                 if (xhr.status==200) {
-                    //XXX: parse some JSON from the request!
-                    //XXX: Pass the data to the callback!
+                    // parse some JSON from the request!
+                    let data = JSON.parse(xhr.responseText);
+                    // Pass the data to the callback!
+                    callback(data);
                 }
             } 
             catch(e) {
@@ -47,26 +54,42 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
             }
         }
     };
-    //XXX: POST to a URL
-    //XXX: set the mimetype and the accept headers!
+    //  POST to a URL
+    // set the mimetype and the accept headers!
     // Remember to use application/json !
+    xhr.open(method, url);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.send(JSON.stringify(objects));
 }
 
 
-world = {};
+var world = {};
 
-//XXX: TODO Make this prettier!
+// Make this prettier!
 function drawCircle(context,entity) {
-    with(context) {
-        beginPath();              
-        lineWidth = 3;
-        var x = entity["x"];
-        var y = entity["y"];
-        //moveTo(x,y);
-        fillStyle = entity["colour"];
-        strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        context.beginPath();
+        if (entity["type"] == "line") {
+            context.lineWidth = 3;
+            var x = entity["x"];
+            var y = entity["y"];
+            var x1 = entity["x1"];
+            var y1 = entity["y1"];
+            context.fillStyle = entity["colour"];
+            context.strokeStyle = context.fillStyle;
+            context.moveTo(x,y);
+            context.lineTo(x1,y1);
+            context.stroke();
+            return;
+        } else if (entity["type"] == "point") {
+            context.lineWidth = 3;
+            var x = entity["x"];
+            var y = entity["y"];
+            context.fillStyle = entity["colour"];
+            context.strokeStyle = context.fillStyle;
+            context.arc(x, y, (entity["radius"])?entity["radius"]:10, 0, 2.0 * Math.PI, false);
+            context.stroke();
+            return;
     }
 }
 
@@ -75,17 +98,15 @@ function prepEntity(entity) {
         entity["colour"] = "#FF0000";
     }
     if (!entity["radius"]) {
-        entity["radius"] = 50;
+        entity["radius"] = 10;
     }
     return entity;
 }
 
 function clearFrame() {
-    with(context) {
-	moveTo(0,0);
-	fillStyle = "#000";
-	fillRect(0,0,W,H);
-    }
+	context.moveTo(0,0);
+	context.fillStyle = "#000";
+	context.fillRect(0,0,W,H);
 
 }
 
@@ -137,25 +158,27 @@ function getPosition(e) {
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just  modified!
+    // Send a XHTML Request that updates the entity you just  modified!
+    sendJSONXMLHTTPRequest("/entity/"+entity, data, function(data) {
+    });
 
 }
 
 var counter = 0;
 function addEntityWithoutName(data) {
     //var name = "X"+Math.floor((Math.random()*100)+1);
-    var name = "X"+(counter++)%100;
+    var name = uuid+(counter++)%100;
     addEntity(name,data);
 }
 
-// canvas + mouse/touch is complicated 
+// canvas + mouse/touch is complicated
 // I give you this because well the mouse/touch stuff is a total
 // pain to get right. This has some out of context bug too.
-mouse = (function() {
+var mouse = (function() {
     // Now this isn't the most popular way of doing OO in 
     // Javascript, but it relies on lexical scope and I like it
     // This isn't 301 so I'm not totally bound to OO :)
-    var self;    
+    var self;
     self = {
         clicked: 0,
         // these are listener lists append to them
@@ -164,7 +187,7 @@ mouse = (function() {
         mousedowners: [],
         mouseuppers: [],
         callListeners: function(listeners,x,y,clicked,e) {
-            for (i in listeners) {
+            for (const i in listeners) {
                 listeners[i](x,y,clicked,e);
             }
         },
@@ -244,32 +267,60 @@ mouse = (function() {
     return self;
 })();
 
+var previousPoint = null;
+
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    let point = {'x':x,'y':y,'colour':'white', 'type':'point'};
+    previousPoint = point;
+    addEntityWithoutName(point);
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    let point = {'x':x,'y':y,'colour':'white', 'type':'point', 'x1': previousPoint.x ?? x, 'y1': previousPoint.y ?? y};
+    previousPoint = null;
+    addEntityWithoutName(point);
+
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    let point = {'x':x,'y':y, 'x1': previousPoint.x ?? x, 'y1': previousPoint.y ?? y, 'colour':'hsl('+(counter/100)*360+',100%,50%)'
+    , 'type':'line'};
+    previousPoint = point;
+    addEntityWithoutName(point);
 });
 
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    sendJSONXMLHTTPRequest("/world",{},(data) => {
+        world = data;
+        drawNextFrame();
+    }, "GET");
+
     drawFrame();
+}
+
+// This calls the webservice to clear the world for everyone
+function clearWorld() {
+
+    sendJSONXMLHTTPRequest("/clear",{},(data) => {
+        world = data;
+        drawNextFrame();
+    });
 }
 
 // 30 frames per second
 setInterval( update, 1000/30.0);
 
+document.getElementById("clearBtn").addEventListener("click", clearWorld);
+
 
 
     </script>
 </body>
+
+<button id="clearBtn">Clear World</button>
+
 </html>
